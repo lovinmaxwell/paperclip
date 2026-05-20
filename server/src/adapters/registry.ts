@@ -326,6 +326,14 @@ const copilotLocalAdapter: ServerAdapterModule = {
   sessionManagement: getAdapterSessionManagement("copilot_local") ?? undefined,
   models: copilotModels,
   supportsLocalAgentJwt: true,
+  supportsInstructionsBundle: true,
+  instructionsPathKey: "instructionsFilePath",
+  requiresMaterializedRuntimeSkills: false,
+  getRuntimeCommandSpec: (config) => ({
+    command: readConfiguredCommand(config, "copilot"),
+    detectCommand: readConfiguredCommand(config, "copilot"),
+    installCommand: null,
+  }),
   agentConfigurationDoc: copilotAgentConfigurationDoc,
 };
 

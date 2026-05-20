@@ -42,8 +42,6 @@ const mockInstanceSettingsApi = vi.hoisted(() => ({
   getExperimental: vi.fn(),
 }));
 
-const kanbanBoardMock = vi.hoisted(() => vi.fn());
-
 vi.mock("../context/CompanyContext", () => ({
   useCompany: () => companyState,
 }));
@@ -53,28 +51,39 @@ vi.mock("../context/DialogContext", () => ({
   useDialogActions: () => dialogState,
 }));
 
-vi.mock("./KanbanBoard", () => ({
-  KANBAN_BOARD_HIGH_VOLUME_THRESHOLD: 100,
-  KANBAN_COLD_STATUSES: ["backlog", "done", "cancelled"],
-  KANBAN_COLUMN_DEFAULT_PAGE_SIZE: 10,
-  KANBAN_COLUMN_PAGE_SIZE_OPTIONS: [10, 25, 50],
-  KanbanBoard: (props: {
-    issues: Issue[];
-    compactCards?: boolean;
-    collapsedStatuses?: string[];
-    initialVisibleCount?: number;
-    revealIncrement?: number;
-  }) => {
-    mockKanbanBoard(props);
-    return (
-      <div data-testid="kanban-board">
-        {props.issues.map((issue) => (
-          <span key={issue.id}>{issue.title}</span>
-        ))}
-      </div>
-    );
-  },
+vi.mock("@/lib/router", () => ({
+  Link: ({
+    children,
+    to,
+    state: _state,
+    issuePrefetch: _issuePrefetch,
+    ...props
+  }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to: string;
+    state?: unknown;
+    issuePrefetch?: unknown;
+  }) => (
+    <a href={to} {...props}>{children}</a>
+  ),
 }));
+
+vi.mock("../api/issues", () => ({
+  issuesApi: mockIssuesApi,
+}));
+
+vi.mock("../api/auth", () => ({
+  authApi: mockAuthApi,
+}));
+
+vi.mock("../api/access", () => ({
+  accessApi: mockAccessApi,
+}));
+
+vi.mock("../api/execution-workspaces", () => ({
+  executionWorkspacesApi: mockExecutionWorkspacesApi,
+}));
+
+vi.mock("../api/instanceSettings", () => ({
   instanceSettingsApi: mockInstanceSettingsApi,
 }));
 
@@ -114,13 +123,6 @@ vi.mock("./IssueRow", () => ({
 }));
 
 vi.mock("./KanbanBoard", () => ({
-<<<<<<< HEAD
-  KanbanBoard: ({ issues }: { issues: Issue[] }) => {
-    kanbanBoardMock({ issues });
-    return (
-      <div data-testid="kanban-board">
-        {issues.map((issue) => issue.title).join(", ")}
-=======
   KANBAN_BOARD_HIGH_VOLUME_THRESHOLD: 100,
   KANBAN_COLD_STATUSES: ["backlog", "done", "cancelled"],
   KANBAN_COLUMN_DEFAULT_PAGE_SIZE: 10,
@@ -138,7 +140,6 @@ vi.mock("./KanbanBoard", () => ({
         {props.issues.map((issue) => (
           <span key={issue.id}>{issue.title}</span>
         ))}
->>>>>>> origin/master
       </div>
     );
   },
@@ -190,32 +191,6 @@ function createIssue(overrides: Partial<Issue> = {}): Issue {
     ...overrides,
     workMode: overrides.workMode ?? "standard",
   };
-}
-
-function installMockLocalStorage() {
-  const store = new Map<string, string>();
-  const storage = {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      store.set(key, String(value));
-    },
-    removeItem: (key: string) => {
-      store.delete(key);
-    },
-    clear: () => {
-      store.clear();
-    },
-    key: (index: number) => Array.from(store.keys())[index] ?? null,
-  };
-
-  Object.defineProperty(storage, "length", {
-    get: () => store.size,
-  });
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-  });
 }
 
 async function flush() {
@@ -299,7 +274,6 @@ describe("IssuesList", () => {
   let container: HTMLDivElement;
 
   beforeEach(() => {
-    installMockLocalStorage();
     container = document.createElement("div");
     document.body.appendChild(container);
     dialogState.openNewIssue.mockReset();
@@ -320,11 +294,7 @@ describe("IssuesList", () => {
     mockExecutionWorkspacesApi.list.mockResolvedValue([]);
     mockExecutionWorkspacesApi.listSummaries.mockResolvedValue([]);
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
-<<<<<<< HEAD
-    kanbanBoardMock.mockReset();
-=======
     setDocumentScrollMetrics({ innerHeight: 600, scrollY: 0, scrollHeight: 2400 });
->>>>>>> origin/master
     localStorage.clear();
   });
 
@@ -1756,47 +1726,6 @@ describe("IssuesList", () => {
     });
   });
 
-<<<<<<< HEAD
-  it("renders board swimlanes grouped by assignee", async () => {
-    localStorage.setItem("paperclip:test-board:company-1", JSON.stringify({
-      ...{
-        statuses: [],
-        priorities: [],
-        assignees: [],
-        labels: [],
-        projects: [],
-        workspaces: [],
-        originKinds: [],
-        unreadOnly: false,
-        onlyMine: false,
-        sortField: "updated",
-        sortDir: "desc",
-        collapsedGroups: [],
-        collapsedParents: [],
-      },
-      viewMode: "board",
-      groupBy: "assignee",
-    }));
-
-    const assignedIssue = createIssue({
-      id: "issue-assigned",
-      identifier: "PAP-30",
-      title: "Assigned issue",
-      assigneeAgentId: "agent-1",
-    });
-    const unassignedIssue = createIssue({
-      id: "issue-unassigned",
-      identifier: "PAP-31",
-      title: "Unassigned issue",
-    });
-
-    const { root } = renderWithQueryClient(
-      <IssuesList
-        issues={[assignedIssue, unassignedIssue]}
-        agents={[{ id: "agent-1", name: "Agent One" }]}
-        projects={[]}
-        viewStateKey="paperclip:test-board"
-=======
   it("uses workspace summaries instead of the full workspace list on the issues page", async () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: true });
     mockExecutionWorkspacesApi.listSummaries.mockResolvedValue([]);
@@ -1807,24 +1736,14 @@ describe("IssuesList", () => {
         agents={[]}
         projects={[]}
         viewStateKey="paperclip:test-issues"
->>>>>>> origin/master
         onUpdateIssue={() => undefined}
       />,
       container,
     );
 
     await waitForAssertion(() => {
-<<<<<<< HEAD
-      expect(container.textContent).toContain("Agent One");
-      expect(container.textContent).toContain("Unassigned");
-      expect(container.textContent).toContain("Assigned issue");
-      expect(container.textContent).toContain("Unassigned issue");
-      expect(container.querySelectorAll('[data-testid="kanban-board"]').length).toBe(2);
-      expect(kanbanBoardMock).toHaveBeenCalledTimes(2);
-=======
       expect(mockExecutionWorkspacesApi.listSummaries).toHaveBeenCalledWith("company-1");
       expect(mockExecutionWorkspacesApi.list).not.toHaveBeenCalled();
->>>>>>> origin/master
     });
 
     act(() => {

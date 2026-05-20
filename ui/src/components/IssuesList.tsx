@@ -148,7 +148,6 @@ const defaultViewState: IssueViewState = {
   boardColumnPageSize: KANBAN_COLUMN_DEFAULT_PAGE_SIZE,
 };
 
-<<<<<<< HEAD
 function normalizeBoardCardDensity(value: unknown): BoardCardDensity {
   return value === "compact" || value === "comfortable" || value === "auto" ? value : "auto";
 }
@@ -162,21 +161,6 @@ function normalizeBoardColumnPageSize(value: unknown): BoardColumnPageSize {
     ? value as BoardColumnPageSize
     : KANBAN_COLUMN_DEFAULT_PAGE_SIZE;
 }
-=======
-function normalizeBoardCardDensity(value: unknown): BoardCardDensity {
-  return value === "compact" || value === "comfortable" || value === "auto" ? value : "auto";
-}
-
-function normalizeBoardColdLaneMode(value: unknown): BoardColdLaneMode {
-  return value === "collapsed" || value === "expanded" || value === "auto" ? value : "auto";
-}
-
-function normalizeBoardColumnPageSize(value: unknown): BoardColumnPageSize {
-  return KANBAN_COLUMN_PAGE_SIZE_OPTIONS.includes(value as BoardColumnPageSize)
-    ? value as BoardColumnPageSize
-    : KANBAN_COLUMN_DEFAULT_PAGE_SIZE;
-}
->>>>>>> origin/master
 
 function getViewState(key: string): IssueViewState {
   try {
@@ -1170,72 +1154,6 @@ export function IssuesList({
     projectById,
   ]);
 
-<<<<<<< HEAD
-  const boardLaneGroups = useMemo(() => {
-    if (viewState.groupBy === "priority") {
-      const groups = groupBy(filtered, (issue) => issue.priority);
-      return issuePriorityOrder
-        .filter((priority) => groups[priority]?.length)
-        .map((priority) => ({
-          key: priority,
-          label: issueFilterLabel(priority),
-          items: groups[priority]!,
-        }));
-    }
-
-    if (viewState.groupBy === "workspace") {
-      const groups = groupBy(filtered, (issue) => resolveIssueFilterWorkspaceId(issue) ?? "__no_workspace");
-      return Object.keys(groups)
-        .sort((a, b) => {
-          if (a === "__no_workspace") return 1;
-          if (b === "__no_workspace") return -1;
-          return (groups[b]?.length ?? 0) - (groups[a]?.length ?? 0);
-        })
-        .map((key) => ({
-          key,
-          label: key === "__no_workspace" ? "No Workspace" : (workspaceNameMap.get(key) ?? key.slice(0, 8)),
-          items: groups[key]!,
-        }));
-    }
-
-    if (viewState.groupBy === "assignee") {
-      const groups = groupBy(
-        filtered,
-        (issue) => issue.assigneeAgentId ?? (issue.assigneeUserId ? `__user:${issue.assigneeUserId}` : "__unassigned"),
-      );
-      return Object.keys(groups)
-        .sort((a, b) => {
-          if (a === "__unassigned") return 1;
-          if (b === "__unassigned") return -1;
-          const labelA =
-            a.startsWith("__user:")
-              ? (formatAssigneeUserLabel(a.slice("__user:".length), currentUserId) ?? "User")
-              : (agentName(a) ?? a.slice(0, 8));
-          const labelB =
-            b.startsWith("__user:")
-              ? (formatAssigneeUserLabel(b.slice("__user:".length), currentUserId) ?? "User")
-              : (agentName(b) ?? b.slice(0, 8));
-          return labelA.localeCompare(labelB);
-        })
-        .map((key) => ({
-          key,
-          label:
-            key === "__unassigned"
-              ? "Unassigned"
-              : key.startsWith("__user:")
-                ? (formatAssigneeUserLabel(key.slice("__user:".length), currentUserId) ?? "User")
-                : (agentName(key) ?? key.slice(0, 8)),
-          items: groups[key]!,
-        }));
-    }
-
-    return [{ key: "__all", label: null as string | null, items: filtered }];
-  }, [filtered, viewState.groupBy, workspaceNameMap, currentUserId, agentName]);
-
-  const isEmpty = !isLoading && filtered.length === 0;
-
-  const newIssueDefaults = useCallback((groupKey?: string) => {
-=======
   useEffect(() => {
     if (viewState.viewMode !== "list") return;
     const nextIssueIds = filtered.map((issue) => issue.id).join("|");
@@ -1321,7 +1239,6 @@ export function IssuesList({
 
   const newIssueDefaults = useCallback((group?: { key: string; items: Issue[] }) => {
     const groupKey = group?.key;
->>>>>>> origin/master
     const defaults: Record<string, unknown> = { ...(baseCreateIssueDefaults ?? {}) };
     if (projectId && defaults.projectId === undefined) defaults.projectId = projectId;
     if (groupKey) {
@@ -1606,6 +1523,7 @@ export function IssuesList({
             </Popover>
           )}
 
+          {/* Group (list view only) */}
           {viewState.viewMode === "list" && (
             <Popover>
               <PopoverTrigger asChild>
@@ -1615,35 +1533,6 @@ export function IssuesList({
               </PopoverTrigger>
               <PopoverContent align="end" className="w-44 p-0">
                 <div className="p-2 space-y-0.5">
-<<<<<<< HEAD
-                  {listGroupOptions.map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={`flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-sm ${
-                        viewState.groupBy === value ? "bg-accent/50 text-foreground" : "hover:bg-accent/50 text-muted-foreground"
-                      }`}
-                      onClick={() => updateView({ groupBy: value })}
-                    >
-                      <span>{label}</span>
-                      {viewState.groupBy === value && <Check className="h-3.5 w-3.5" />}
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-
-          {viewState.viewMode === "board" && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Swimlanes">
-                  <Layers className="h-3.5 w-3.5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-44 p-0">
-                <div className="p-2 space-y-0.5">
-                  {boardSwimlaneOptions.map(([value, label]) => (
-=======
                   {([
                     ["status", "Status"],
                     ["priority", "Priority"],
@@ -1653,7 +1542,6 @@ export function IssuesList({
                     ["parent", "Parent Issue"],
                     ["none", "None"],
                   ] as const).map(([value, label]) => (
->>>>>>> origin/master
                     <button
                       key={value}
                       className={`flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-sm ${
@@ -1674,10 +1562,6 @@ export function IssuesList({
 
       {isLoading && <PageSkeleton variant="issues-list" />}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
-<<<<<<< HEAD
-
-      {isEmpty && (
-=======
       {!searchWithinLoadedIssues && normalizedIssueSearch.length > 0 && searchedIssues.length === ISSUE_SEARCH_RESULT_LIMIT && (
         <p className="text-xs text-muted-foreground">
           Showing up to {ISSUE_SEARCH_RESULT_LIMIT} matches. Refine the search to narrow further.
@@ -1689,7 +1573,6 @@ export function IssuesList({
         </p>
       )}
       {!isLoading && filtered.length === 0 && viewState.viewMode === "list" && (
->>>>>>> origin/master
         <EmptyState
           icon={CircleDot}
           message="No issues match the current filters or search."
@@ -1698,38 +1581,6 @@ export function IssuesList({
         />
       )}
 
-<<<<<<< HEAD
-      {!isEmpty && (viewState.viewMode === "board" ? (
-        boardLaneGroups.length === 1 && boardLaneGroups[0]?.label === null ? (
-          <KanbanBoard
-            issues={filtered}
-            agents={agents}
-            liveIssueIds={liveIssueIds}
-            onUpdateIssue={onUpdateIssue}
-          />
-        ) : (
-          <div className="space-y-4">
-            {boardLaneGroups.map((group) => (
-              <section key={group.key} className="space-y-2">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {group.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground/60 tabular-nums">
-                    {group.items.length}
-                  </span>
-                </div>
-                <KanbanBoard
-                  issues={group.items}
-                  agents={agents}
-                  liveIssueIds={liveIssueIds}
-                  onUpdateIssue={onUpdateIssue}
-                />
-              </section>
-            ))}
-          </div>
-        )
-=======
       {viewState.viewMode === "board" ? (
         <KanbanBoard
           issues={filtered}
@@ -1741,7 +1592,6 @@ export function IssuesList({
           revealIncrement={viewState.boardColumnPageSize}
           onUpdateIssue={onUpdateIssue}
         />
->>>>>>> origin/master
       ) : (
         <>
           {groupedContent.map((group) => {
@@ -2103,10 +1953,6 @@ export function IssuesList({
               })()}
             </CollapsibleContent>
           </Collapsible>
-<<<<<<< HEAD
-        ))
-      ))}
-=======
           );
           })}
           {(remainingIssueRowCount > 0 || hasMoreIssues || isLoadingMoreIssues) && (
@@ -2122,7 +1968,6 @@ export function IssuesList({
           )}
         </>
       )}
->>>>>>> origin/master
     </div>
   );
 }

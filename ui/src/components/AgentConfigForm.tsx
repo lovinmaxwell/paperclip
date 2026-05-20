@@ -998,13 +998,6 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 groupByProvider={adapterType === "opencode_local"}
                 creatable
                 detectedModel={detectedModel}
-<<<<<<< HEAD
-                detectedModelCandidates={detectedModelCandidates}
-                onDetectModel={async () => {
-                  const result = await refetchDetectedModel();
-                  return result.data?.model ?? null;
-                }}
-=======
                 detectedModelCandidates={[]}
                 onDetectModel={adapterType === "opencode_local"
                   ? undefined
@@ -1018,7 +1011,6 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     : undefined
                 }
                 refreshingModels={refreshingModels}
->>>>>>> origin/master
                 detectModelLabel="Detect model"
                 emptyDetectHint="No model detected. Select or enter one manually."
               />

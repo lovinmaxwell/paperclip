@@ -65,18 +65,17 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     label: "Claude Code",
     description: "Local Claude agent",
     icon: Sparkles,
-    recommended: true,
   },
   codex_local: {
     label: "Codex",
     description: "Local Codex agent",
     icon: Code,
-    recommended: true,
   },
   copilot_local: {
     label: "Copilot CLI",
     description: "Local GitHub Copilot agent",
     icon: Bot,
+    recommended: true,
   },
   gemini_local: {
     label: "Gemini CLI",
