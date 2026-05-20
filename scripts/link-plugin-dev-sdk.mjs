@@ -30,6 +30,16 @@ try {
 }
 
 const relativeSdkDir = relative(scopeDir, sdkDir);
-symlinkSync(relativeSdkDir, linkTarget, "dir");
+try {
+  symlinkSync(relativeSdkDir, linkTarget, "dir");
+} catch (error) {
+  // Node 25 can surface EEXIST here even when linkTarget is already the
+  // desired symlink; treat this as success to keep postinstall idempotent.
+  if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+    console.log(`  i @paperclipai/plugin-sdk link already exists for ${packageDir}`);
+    process.exit(0);
+  }
+  throw error;
+}
 
 console.log(`  ✓ Linked local @paperclipai/plugin-sdk for ${packageDir}`);
