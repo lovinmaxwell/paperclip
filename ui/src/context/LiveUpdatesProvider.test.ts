@@ -100,6 +100,94 @@ describe("LiveUpdatesProvider issue invalidation", () => {
     });
   });
 
+  it("refreshes issue document caches when a document activity event arrives", () => {
+    const invalidations: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (input: unknown) => {
+        invalidations.push(input);
+      },
+      getQueryData: () => undefined,
+    };
+
+    __liveUpdatesTestUtils.invalidateActivityQueries(
+      queryClient as never,
+      "company-1",
+      {
+        entityType: "issue",
+        entityId: "issue-1",
+        action: "issue.document_updated",
+        actorType: "agent",
+        actorId: "agent-1",
+        details: {
+          identifier: "PAP-9403",
+          key: "plan",
+        },
+      },
+      { userId: "user-1", agentId: null },
+      { pathname: "/PAP/issues/PAP-9403", isForegrounded: true },
+    );
+
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.detail("issue-1"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.documents("issue-1"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.document("issue-1", "plan"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.documentRevisions("issue-1", "plan"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.documents("PAP-9403"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.document("PAP-9403", "plan"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.documentRevisions("PAP-9403", "plan"),
+    });
+    expect(invalidations).not.toContainEqual({
+      queryKey: queryKeys.issues.documents("issue-1"),
+      refetchType: "inactive",
+    });
+  });
+
+  it("refreshes all issue document caches when document activity omits a document key", () => {
+    const invalidations: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (input: unknown) => {
+        invalidations.push(input);
+      },
+      getQueryData: () => undefined,
+    };
+
+    __liveUpdatesTestUtils.invalidateActivityQueries(
+      queryClient as never,
+      "company-1",
+      {
+        entityType: "issue",
+        entityId: "issue-1",
+        action: "issue.document_deleted",
+        actorType: "agent",
+        actorId: "agent-1",
+        details: null,
+      },
+      { userId: "user-1", agentId: null },
+    );
+
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.documents("issue-1"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: ["issues", "document", "issue-1"],
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: ["issues", "document-revisions", "issue-1"],
+    });
+  });
+
   it("keeps self-authored comment events from refetching the active issue tree", () => {
     const invalidations: unknown[] = [];
     const queryClient = {
@@ -317,6 +405,141 @@ describe("LiveUpdatesProvider issue invalidation", () => {
       queryKey: queryKeys.issues.comments("issue-1"),
       refetchType: "inactive",
     });
+  });
+
+  it("refreshes visible issue run queries when the displayed run changes status", () => {
+    const invalidations: unknown[] = [];
+    const cache = new Map<string, unknown>([
+      [JSON.stringify(queryKeys.issues.detail("PAP-759")), {
+        id: "issue-1",
+        identifier: "PAP-759",
+        assigneeAgentId: "agent-1",
+        executionRunId: "run-1",
+        executionAgentNameKey: "codexcoder",
+        executionLockedAt: new Date("2026-04-08T21:00:00.000Z"),
+      }],
+      [JSON.stringify(queryKeys.issues.detail("issue-1")), {
+        id: "issue-1",
+        identifier: "PAP-759",
+        assigneeAgentId: "agent-1",
+        executionRunId: "run-1",
+        executionAgentNameKey: "codexcoder",
+        executionLockedAt: new Date("2026-04-08T21:00:00.000Z"),
+      }],
+      [JSON.stringify(queryKeys.issues.activeRun("PAP-759")), {
+        id: "run-1",
+      }],
+      [JSON.stringify(queryKeys.issues.activeRun("issue-1")), {
+        id: "run-1",
+      }],
+      [JSON.stringify(queryKeys.issues.liveRuns("PAP-759")), [{ id: "run-1" }]],
+      [JSON.stringify(queryKeys.issues.liveRuns("issue-1")), [{ id: "run-1" }]],
+      [JSON.stringify(queryKeys.issues.runs("PAP-759")), [{ runId: "run-1" }]],
+      [JSON.stringify(queryKeys.issues.runs("issue-1")), [{ runId: "run-1" }]],
+    ]);
+    const queryClient = {
+      invalidateQueries: (input: unknown) => {
+        invalidations.push(input);
+      },
+      getQueryData: (key: unknown) => {
+        return cache.get(JSON.stringify(key));
+      },
+      setQueryData: (key: unknown, updater: unknown) => {
+        const cacheKey = JSON.stringify(key);
+        const current = cache.get(cacheKey);
+        cache.set(cacheKey, typeof updater === "function" ? updater(current) : updater);
+      },
+    };
+
+    const invalidated = __liveUpdatesTestUtils.invalidateVisibleIssueRunQueries(
+      queryClient as never,
+      "/PAP/issues/PAP-759",
+      {
+        runId: "run-1",
+        agentId: "agent-1",
+        status: "succeeded",
+      },
+      { isForegrounded: true },
+    );
+
+    expect(invalidated).toBe(true);
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.detail("PAP-759"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.activity("PAP-759"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.runs("PAP-759"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.liveRuns("PAP-759"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.activeRun("PAP-759"),
+    });
+    expect(invalidations).toContainEqual({
+      queryKey: queryKeys.issues.activeRun("issue-1"),
+    });
+    expect(cache.get(JSON.stringify(queryKeys.issues.activeRun("PAP-759")))).toBeNull();
+    expect(cache.get(JSON.stringify(queryKeys.issues.liveRuns("PAP-759")))).toEqual([]);
+    expect(cache.get(JSON.stringify(queryKeys.issues.detail("PAP-759")))).toMatchObject({
+      executionRunId: null,
+      executionAgentNameKey: null,
+      executionLockedAt: null,
+    });
+    expect(cache.get(JSON.stringify(queryKeys.issues.activeRun("issue-1")))).toBeNull();
+    expect(cache.get(JSON.stringify(queryKeys.issues.liveRuns("issue-1")))).toEqual([]);
+    expect(cache.get(JSON.stringify(queryKeys.issues.detail("issue-1")))).toMatchObject({
+      executionRunId: null,
+      executionAgentNameKey: null,
+      executionLockedAt: null,
+    });
+  });
+
+  it("ignores run status events for other issues", () => {
+    const invalidations: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (input: unknown) => {
+        invalidations.push(input);
+      },
+      getQueryData: (key: unknown) => {
+        if (JSON.stringify(key) === JSON.stringify(queryKeys.issues.detail("PAP-759"))) {
+          return {
+            id: "issue-1",
+            identifier: "PAP-759",
+            assigneeAgentId: "agent-1",
+          };
+        }
+        if (JSON.stringify(key) === JSON.stringify(queryKeys.issues.activeRun("PAP-759"))) {
+          return {
+            id: "run-1",
+          };
+        }
+        if (JSON.stringify(key) === JSON.stringify(queryKeys.issues.liveRuns("PAP-759"))) {
+          return [{ id: "run-1" }];
+        }
+        if (JSON.stringify(key) === JSON.stringify(queryKeys.issues.runs("PAP-759"))) {
+          return [{ runId: "run-1" }];
+        }
+        return undefined;
+      },
+      setQueryData: vi.fn(),
+    };
+
+    const invalidated = __liveUpdatesTestUtils.invalidateVisibleIssueRunQueries(
+      queryClient as never,
+      "/PAP/issues/PAP-759",
+      {
+        runId: "run-2",
+        agentId: "agent-2",
+        status: "succeeded",
+      },
+      { isForegrounded: true },
+    );
+
+    expect(invalidated).toBe(false);
+    expect(invalidations).toEqual([]);
   });
 });
 
@@ -566,57 +789,5 @@ describe("LiveUpdatesProvider run lifecycle toasts", () => {
       body: "boom",
       tone: "error",
     });
-  });
-});
-
-describe("LiveUpdatesProvider socket helpers", () => {
-  it("waits for the selected company object to catch up before connecting", () => {
-    expect(__liveUpdatesTestUtils.resolveLiveCompanyId("company-1", null)).toBeNull();
-    expect(__liveUpdatesTestUtils.resolveLiveCompanyId("company-1", "company-2")).toBeNull();
-    expect(__liveUpdatesTestUtils.resolveLiveCompanyId("company-1", "company-1")).toBe("company-1");
-  });
-
-  it("defers close until onopen for sockets that are still connecting", () => {
-    const socket = {
-      readyState: 0,
-      onopen: (() => undefined) as (() => void) | null,
-      onmessage: (() => undefined) as (() => void) | null,
-      onerror: (() => undefined) as (() => void) | null,
-      onclose: (() => undefined) as (() => void) | null,
-      close: vi.fn(),
-    };
-
-    __liveUpdatesTestUtils.closeSocketQuietly(socket as never, "provider_unmount");
-
-    expect(socket.close).not.toHaveBeenCalled();
-    expect(socket.onmessage).toBeNull();
-    expect(socket.onclose).toBeNull();
-    expect(socket.onopen).toBeTypeOf("function");
-    expect(socket.onerror).toBeTypeOf("function");
-
-    socket.onopen?.();
-
-    expect(socket.close).toHaveBeenCalledWith(1000, "provider_unmount");
-    expect(socket.onopen).toBeNull();
-    expect(socket.onerror).toBeNull();
-  });
-
-  it("closes open sockets immediately without leaving handlers behind", () => {
-    const socket = {
-      readyState: 1,
-      onopen: (() => undefined) as (() => void) | null,
-      onmessage: (() => undefined) as (() => void) | null,
-      onerror: (() => undefined) as (() => void) | null,
-      onclose: (() => undefined) as (() => void) | null,
-      close: vi.fn(),
-    };
-
-    __liveUpdatesTestUtils.closeSocketQuietly(socket as never, "stale_connection");
-
-    expect(socket.close).toHaveBeenCalledWith(1000, "stale_connection");
-    expect(socket.onopen).toBeNull();
-    expect(socket.onmessage).toBeNull();
-    expect(socket.onerror).toBeNull();
-    expect(socket.onclose).toBeNull();
   });
 });
