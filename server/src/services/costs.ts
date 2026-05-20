@@ -13,7 +13,7 @@ export interface CostDateRange {
 const METERED_BILLING_TYPE = "metered_api";
 const SUBSCRIPTION_BILLING_TYPES = ["subscription_included", "subscription_overage"] as const;
 
-function sumAsNumber(column: typeof costEvents.costCents | typeof costEvents.inputTokens | typeof costEvents.cachedInputTokens | typeof costEvents.outputTokens) {
+function sumAsNumber(column: typeof costEvents.costCents | typeof costEvents.inputTokens | typeof costEvents.cachedInputTokens | typeof costEvents.outputTokens | typeof costEvents.premiumRequests) {
   return sql<number>`coalesce(sum(${column}), 0)::double precision`;
 }
 
@@ -233,6 +233,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
             inputTokens: sumAsNumber(costEvents.inputTokens),
             cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
             outputTokens: sumAsNumber(costEvents.outputTokens),
+            premiumRequests: sumAsNumber(costEvents.premiumRequests),
           })
           .from(issues)
           .leftJoin(
@@ -265,6 +266,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
         inputTokens: Number(costRow?.inputTokens ?? 0),
         cachedInputTokens: Number(costRow?.cachedInputTokens ?? 0),
         outputTokens: Number(costRow?.outputTokens ?? 0),
+        premiumRequests: Number(costRow?.premiumRequests ?? 0),
         runCount: Number(runRow?.runCount ?? 0),
         runtimeMs: Number(runRow?.runtimeMs ?? 0),
       };
@@ -284,6 +286,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           inputTokens: sumAsNumber(costEvents.inputTokens),
           cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
           outputTokens: sumAsNumber(costEvents.outputTokens),
+          premiumRequests: sumAsNumber(costEvents.premiumRequests),
           apiRunCount:
             sql<number>`count(distinct case when ${costEvents.billingType} = ${METERED_BILLING_TYPE} then ${costEvents.heartbeatRunId} end)::int`,
           subscriptionRunCount:
@@ -317,6 +320,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           inputTokens: sumAsNumber(costEvents.inputTokens),
           cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
           outputTokens: sumAsNumber(costEvents.outputTokens),
+          premiumRequests: sumAsNumber(costEvents.premiumRequests),
           apiRunCount:
             sql<number>`count(distinct case when ${costEvents.billingType} = ${METERED_BILLING_TYPE} then ${costEvents.heartbeatRunId} end)::int`,
           subscriptionRunCount:
@@ -346,6 +350,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           inputTokens: sumAsNumber(costEvents.inputTokens),
           cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
           outputTokens: sumAsNumber(costEvents.outputTokens),
+          premiumRequests: sumAsNumber(costEvents.premiumRequests),
           apiRunCount:
             sql<number>`count(distinct case when ${costEvents.billingType} = ${METERED_BILLING_TYPE} then ${costEvents.heartbeatRunId} end)::int`,
           subscriptionRunCount:

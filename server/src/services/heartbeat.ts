@@ -1031,6 +1031,7 @@ type UsageTotals = {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
+  premiumRequests: number;
 };
 
 type SessionCompactionDecision = {
@@ -1443,7 +1444,12 @@ function normalizeUsageTotals(usage: UsageSummary | null | undefined): UsageTota
     inputTokens: Math.max(0, Math.floor(asNumber(usage.inputTokens, 0))),
     cachedInputTokens: Math.max(0, Math.floor(asNumber(usage.cachedInputTokens, 0))),
     outputTokens: Math.max(0, Math.floor(asNumber(usage.outputTokens, 0))),
+    premiumRequests: normalizePremiumRequests(usage.premiumRequests),
   };
+}
+function normalizePremiumRequests(value: unknown): number {
+  const n = asNumber(value, 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 function readRawUsageTotals(usageJson: unknown): UsageTotals | null {
@@ -1471,6 +1477,7 @@ function readRawUsageTotals(usageJson: unknown): UsageTotals | null {
     inputTokens,
     cachedInputTokens,
     outputTokens,
+    premiumRequests: normalizePremiumRequests(parsed.premiumRequests),
   };
 }
 
@@ -1492,6 +1499,7 @@ function deriveNormalizedUsageDelta(current: UsageTotals | null, previous: Usage
     inputTokens: Math.max(0, inputTokens),
     cachedInputTokens: Math.max(0, cachedInputTokens),
     outputTokens: Math.max(0, outputTokens),
+    premiumRequests: current.premiumRequests,
   };
 }
 
@@ -6761,9 +6769,10 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
     const inputTokens = usage?.inputTokens ?? 0;
     const outputTokens = usage?.outputTokens ?? 0;
     const cachedInputTokens = usage?.cachedInputTokens ?? 0;
+    const premiumRequests = usage?.premiumRequests ?? 0;
     const billingType = normalizeLedgerBillingType(result.billingType);
     const additionalCostCents = normalizeBilledCostCents(result.costUsd, billingType);
-    const hasTokenUsage = inputTokens > 0 || outputTokens > 0 || cachedInputTokens > 0;
+    const hasTokenUsage = inputTokens > 0 || outputTokens > 0 || cachedInputTokens > 0 || premiumRequests > 0;
     const provider = result.provider ?? "unknown";
     const biller = resolveLedgerBiller(result);
     const ledgerScope = await resolveLedgerScopeForRun(db, agent.companyId, run);
@@ -6780,6 +6789,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         totalOutputTokens: sql`${agentRuntimeState.totalOutputTokens} + ${outputTokens}`,
         totalCachedInputTokens: sql`${agentRuntimeState.totalCachedInputTokens} + ${cachedInputTokens}`,
         totalCostCents: sql`${agentRuntimeState.totalCostCents} + ${additionalCostCents}`,
+        totalPremiumRequests: sql`${agentRuntimeState.totalPremiumRequests} + ${premiumRequests}`,
         updatedAt: new Date(),
       })
       .where(eq(agentRuntimeState.agentId, agent.id));
@@ -6798,6 +6808,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         inputTokens,
         cachedInputTokens,
         outputTokens,
+        premiumRequests,
         costCents: additionalCostCents,
         occurredAt: new Date(),
       });

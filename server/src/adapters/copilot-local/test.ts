@@ -116,11 +116,10 @@ export async function testEnvironment(
     } else {
       const model = asString(config.model, DEFAULT_COPILOT_LOCAL_MODEL).trim();
       const effort = asString(config.effort, "").trim();
-      const autopilot = asBoolean(config.autopilot, true);
       const experimental = asBoolean(config.experimental, false);
       const enableReasoningSummaries = asBoolean(config.enableReasoningSummaries, false);
       const maxAutopilotContinues = Math.max(0, asNumber(config.maxAutopilotContinues, 0));
-      const helloProbeTimeoutSec = Math.max(1, asNumber(config.helloProbeTimeoutSec, 15));
+      const helloProbeTimeoutSec = Math.max(1, asNumber(config.helloProbeTimeoutSec, 30));
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);
         if (fromExtraArgs.length > 0) return fromExtraArgs;
@@ -140,7 +139,8 @@ export async function testEnvironment(
         "off",
         "--no-color",
       ];
-      if (autopilot) args.push("--autopilot");
+      // Note: --autopilot is intentionally omitted from the hello probe.
+      // It adds unnecessary turns/thinking overhead that can push past the timeout.
       if (effort) args.push("--effort", effort);
       if (experimental) args.push("--experimental");
       if (enableReasoningSummaries) args.push("--enable-reasoning-summaries");

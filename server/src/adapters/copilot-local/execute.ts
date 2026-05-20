@@ -380,11 +380,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         (runExitCode !== 0 || run.timedOut
           ? runParsed.lastToolError || firstNonEmptyLine(run.stderr) || firstNonEmptyLine(run.stdout) || "Copilot run failed"
           : null),
-      usage: runParsed.outputTokens > 0
+      usage: (runParsed.outputTokens > 0 || (runParsed.premiumRequests ?? 0) > 0)
         ? {
             inputTokens: 0,
             outputTokens: runParsed.outputTokens,
             cachedInputTokens: 0,
+            ...(typeof runParsed.premiumRequests === "number" ? { premiumRequests: runParsed.premiumRequests } : {}),
           }
         : undefined,
       sessionId: runParsed.sessionId,

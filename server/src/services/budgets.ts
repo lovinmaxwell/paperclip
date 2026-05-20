@@ -143,7 +143,7 @@ async function computeObservedAmount(
   db: Db,
   policy: Pick<PolicyRow, "companyId" | "scopeType" | "scopeId" | "windowKind" | "metric">,
 ) {
-  if (policy.metric !== "billed_cents") return 0;
+  if (policy.metric !== "billed_cents" && policy.metric !== "premium_requests") return 0;
 
   const conditions = [eq(costEvents.companyId, policy.companyId)];
   if (policy.scopeType === "agent") conditions.push(eq(costEvents.agentId, policy.scopeId));
@@ -154,9 +154,13 @@ async function computeObservedAmount(
     conditions.push(lt(costEvents.occurredAt, end));
   }
 
+  const sumColumn = policy.metric === "premium_requests"
+    ? costEvents.premiumRequests
+    : costEvents.costCents;
+
   const [row] = await db
     .select({
-      total: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::double precision`,
+      total: sql<number>`coalesce(sum(${sumColumn}), 0)::double precision`,
     })
     .from(costEvents)
     .where(and(...conditions));

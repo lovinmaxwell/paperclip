@@ -31,6 +31,7 @@ export interface UsageSummary {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens?: number;
+  premiumRequests?: number;
 }
 
 export type AdapterBillingType =
