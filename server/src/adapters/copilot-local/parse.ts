@@ -21,6 +21,18 @@ function readText(value: unknown): string {
   }
 }
 
+function readTokenCount(record: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const raw = record[key];
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string") {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
 export function parseCopilotJsonl(stdout: string) {
   let sessionId: string | null = null;
   let model: string | null = null;
@@ -30,6 +42,10 @@ export function parseCopilotJsonl(stdout: string) {
   let statusCode: number | null = null;
   let blockedDangerousShellCommand: string | null = null;
   let premiumRequests: number | null = null;
+  let inputTokens: number | null = null;
+  let cachedInputTokens: number | null = null;
+  let reasoningTokens: number | null = null;
+  let outputTokensFromUsage: number | null = null;
   let outputTokens = 0;
   let finalResult: Record<string, unknown> | null = null;
   const messages: string[] = [];
@@ -79,10 +95,37 @@ export function parseCopilotJsonl(stdout: string) {
         asString(event.session_id, "").trim() ||
         sessionId;
       const usage = parseObject(event.usage);
-      const premium = usage.premiumRequests;
+      const usageFromData = parseObject(data.usage);
+      const effectiveUsage = Object.keys(usage).length > 0 ? usage : usageFromData;
+      const premium = effectiveUsage.premiumRequests;
       if (typeof premium === "number" && Number.isFinite(premium)) {
         premiumRequests = premium;
       }
+      const parsedInputTokens = readTokenCount(effectiveUsage, ["inputTokens", "input_tokens"]);
+      if (parsedInputTokens != null) inputTokens = parsedInputTokens;
+      const parsedCachedInputTokens = readTokenCount(effectiveUsage, [
+        "cachedInputTokens",
+        "cached_input_tokens",
+        "cacheReadInputTokens",
+        "cache_read_input_tokens",
+      ]);
+      if (parsedCachedInputTokens != null) cachedInputTokens = parsedCachedInputTokens;
+      const parsedReasoningTokens = readTokenCount(effectiveUsage, [
+        "reasoningTokens",
+        "reasoning_tokens",
+        "outputReasoningTokens",
+        "output_reasoning_tokens",
+        "reasoningOutputTokens",
+        "reasoning_output_tokens",
+      ]);
+      if (parsedReasoningTokens != null) reasoningTokens = parsedReasoningTokens;
+      const parsedOutputTokens = readTokenCount(effectiveUsage, [
+        "outputTokens",
+        "output_tokens",
+        "completionTokens",
+        "completion_tokens",
+      ]);
+      if (parsedOutputTokens != null) outputTokensFromUsage = parsedOutputTokens;
       continue;
     }
 
@@ -114,7 +157,10 @@ export function parseCopilotJsonl(stdout: string) {
       ((sessionError ?? lastToolError) ? COPILOT_RATE_LIMIT_RE.test(sessionError ?? lastToolError!) : false),
     isDangerousShellBlock: blockedDangerousShellCommand != null,
     model,
-    outputTokens,
+    inputTokens,
+    cachedInputTokens,
+    reasoningTokens,
+    outputTokens: outputTokensFromUsage ?? outputTokens,
     premiumRequests,
     finalResult,
   };

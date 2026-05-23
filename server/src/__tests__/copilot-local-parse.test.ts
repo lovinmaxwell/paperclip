@@ -17,7 +17,13 @@ describe("parseCopilotJsonl", () => {
         type: "result",
         sessionId: "sess_123",
         exitCode: 0,
-        usage: { premiumRequests: 0.33 },
+        usage: {
+          inputTokens: 21,
+          cachedInputTokens: 8,
+          outputTokens: 14,
+          reasoningTokens: 3,
+          premiumRequests: 0.33,
+        },
       }),
     ].join("\n");
 
@@ -25,8 +31,32 @@ describe("parseCopilotJsonl", () => {
     expect(parsed.sessionId).toBe("sess_123");
     expect(parsed.model).toBe("gpt-5.4-mini");
     expect(parsed.summary).toBe("hello");
-    expect(parsed.outputTokens).toBe(12);
+    expect(parsed.inputTokens).toBe(21);
+    expect(parsed.cachedInputTokens).toBe(8);
+    expect(parsed.outputTokens).toBe(14);
+    expect(parsed.reasoningTokens).toBe(3);
     expect(parsed.premiumRequests).toBe(0.33);
+  });
+
+  it("reads usage values from snake_case keys", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      session_id: "sess_snake",
+      exitCode: 0,
+      usage: {
+        input_tokens: "34",
+        cached_input_tokens: "13",
+        output_tokens: "55",
+        reasoning_output_tokens: "7",
+      },
+    });
+
+    const parsed = parseCopilotJsonl(stdout);
+    expect(parsed.sessionId).toBe("sess_snake");
+    expect(parsed.inputTokens).toBe(34);
+    expect(parsed.cachedInputTokens).toBe(13);
+    expect(parsed.outputTokens).toBe(55);
+    expect(parsed.reasoningTokens).toBe(7);
   });
 
   it("captures tool execution failures as lastToolError", () => {
