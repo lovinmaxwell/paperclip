@@ -7,6 +7,7 @@ export const models = [
   { id: "claude-haiku-4.5", label: "Claude Haiku 4.5" },
   { id: "claude-opus-4.5", label: "Claude Opus 4.5" },
   { id: "claude-opus-4.6", label: "Claude Opus 4.6" },
+  { id: "claude-opus-4.7", label: "Claude Opus 4.7" },
   { id: "claude-sonnet-4", label: "Claude Sonnet 4" },
   { id: "claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
   { id: "claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
@@ -18,6 +19,7 @@ export const models = [
   { id: "gpt-5.3-codex", label: "GPT-5.3 Codex" },
   { id: "gpt-5.4", label: "GPT-5.4" },
   { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
+  { id: "gpt-5.5", label: "GPT-5.5" },
 ];
 
 export const agentConfigurationDoc = `# copilot_local agent configuration
@@ -39,9 +41,10 @@ Core fields:
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file prepended to the prompt
 - promptTemplate (string, optional): run prompt template
 - model (string, optional): Copilot CLI model id. Defaults to claude-sonnet-4.5.
-- effort (string, optional): reasoning effort passed via --effort (low|medium|high|xhigh)
+- effort (string, optional): reasoning effort passed via --effort (none|low|medium|high|xhigh)
 - autopilot (boolean, optional): when true, passes --autopilot (default: true)
 - maxAutopilotContinues (number, optional): pass --max-autopilot-continues when greater than 0
+- preferSessionIdFlag (boolean, optional): when true (default), Paperclip resumes sessions with --session-id and falls back to --resume on older CLI versions
 - experimental (boolean, optional): when true, passes --experimental
 - enableReasoningSummaries (boolean, optional): when true, passes --enable-reasoning-summaries
 - command (string, optional): defaults to "copilot"

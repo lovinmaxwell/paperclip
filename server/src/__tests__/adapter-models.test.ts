@@ -128,8 +128,10 @@ describe("adapter model listing", () => {
     const models = await listAdapterModels("copilot_local");
 
     expect(models).toEqual(copilotFallbackModels);
+    expect(models.some((model) => model.id === "claude-opus-4.7")).toBe(true);
     expect(models.some((model) => model.id === "claude-opus-4.6")).toBe(true);
     expect(models.some((model) => model.id === "claude-haiku-4.5")).toBe(true);
+    expect(models.some((model) => model.id === "gpt-5.5")).toBe(true);
     expect(models.some((model) => model.id === "gpt-5.3-codex")).toBe(true);
     expect(models.some((model) => model.id === "gpt-5.2-codex")).toBe(true);
   });

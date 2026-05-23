@@ -21,6 +21,15 @@ function asNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function asNullableNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 function stringifyUnknown(value: unknown): string {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return "";
@@ -42,6 +51,14 @@ function parseResultText(resultRaw: unknown): string {
     asString(result.error) ||
     stringifyUnknown(result)
   );
+}
+
+function readUsageValue(usage: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = asNullableNumber(usage[key]);
+    if (value != null) return value;
+  }
+  return null;
 }
 
 export function createCopilotStdoutParser() {
@@ -109,16 +126,34 @@ export function createCopilotStdoutParser() {
           asString(parsed.session_id);
         const exitCode = asNumber(parsed.exitCode, 0);
         const usage = asRecord(parsed.usage);
-        const premiumRequests = usage && typeof usage.premiumRequests === "number"
-          ? `premiumRequests=${usage.premiumRequests}`
-          : "";
+        const usageInputTokens = usage ? readUsageValue(usage, ["inputTokens", "input_tokens"]) : null;
+        const usageCachedInputTokens = usage
+          ? readUsageValue(usage, ["cachedInputTokens", "cached_input_tokens", "cacheReadInputTokens", "cache_read_input_tokens"])
+          : null;
+        const usageOutputTokens = usage
+          ? readUsageValue(usage, ["outputTokens", "output_tokens", "completionTokens", "completion_tokens"])
+          : null;
+        const usageReasoningTokens = usage
+          ? readUsageValue(usage, [
+              "reasoningTokens",
+              "reasoning_tokens",
+              "outputReasoningTokens",
+              "output_reasoning_tokens",
+              "reasoningOutputTokens",
+              "reasoning_output_tokens",
+            ])
+          : null;
+        const usageSummary = [
+          typeof usage?.premiumRequests === "number" ? `premiumRequests=${usage.premiumRequests}` : "",
+          usageReasoningTokens != null ? `reasoningTokens=${usageReasoningTokens}` : "",
+        ].filter(Boolean).join(" ");
         const resultEntry: TranscriptEntry = {
           kind: "result",
           ts,
-          text: premiumRequests,
-          inputTokens: 0,
-          outputTokens,
-          cachedTokens: 0,
+          text: usageSummary,
+          inputTokens: usageInputTokens ?? 0,
+          outputTokens: usageOutputTokens ?? outputTokens,
+          cachedTokens: usageCachedInputTokens ?? 0,
           costUsd: 0,
           subtype: `exit_code=${exitCode}`,
           isError: exitCode !== 0,

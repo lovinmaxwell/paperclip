@@ -46,6 +46,8 @@ const COPILOT_SHELL_SAFETY_NOTE = [
   "an alternative strategy.",
 ].join("\n");
 const COPILOT_RATE_LIMIT_RETRY_MS = 65_000;
+const COPILOT_UNSUPPORTED_SESSION_ID_FLAG_RE =
+  /(?:unknown|unrecognized|invalid)\s+(?:option|flag|argument).*(--session-id)|--session-id.*(?:not supported|unknown|unrecognized|invalid)/i;
 
 function firstNonEmptyLine(text: string): string {
   return (
@@ -118,6 +120,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const autopilot = asBoolean(config.autopilot, true);
   const experimental = asBoolean(config.experimental, false);
   const enableReasoningSummaries = asBoolean(config.enableReasoningSummaries, false);
+  const preferSessionIdFlag = asBoolean(config.preferSessionIdFlag, true);
 
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
@@ -310,10 +313,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     `Paperclip skills are linked into ${resolveCopilotSkillsHome(config)}.`,
     `Using Copilot prompt bundle ${promptBundleKey}.`,
     ...(autopilot ? ["Added --autopilot for multi-step completion."] : []),
+    ...(preferSessionIdFlag ? ["Session resume uses --session-id when supported."] : []),
     ...(instructionsPrefix ? [`Loaded agent instructions from ${instructionsFilePath}.`] : []),
   ];
 
-  async function runAttempt(resumeSessionId: string | null) {
+  async function runAttempt(
+    resumeSessionId: string | null,
+    options?: { resumeStyle?: "session_id" | "resume" },
+  ) {
+    const resumeStyle = options?.resumeStyle ?? "session_id";
     const args = [
       "-p",
       prompt,
@@ -333,7 +341,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (enableReasoningSummaries) args.push("--enable-reasoning-summaries");
     if (maxAutopilotContinues > 0) args.push("--max-autopilot-continues", String(maxAutopilotContinues));
     if (model) args.push("--model", model);
-    if (resumeSessionId) args.push(`--resume=${resumeSessionId}`);
+    if (resumeSessionId) {
+      if (resumeStyle === "session_id") {
+        args.push("--session-id", resumeSessionId);
+      } else {
+        args.push(`--resume=${resumeSessionId}`);
+      }
+    }
     if (extraArgs.length > 0) args.push(...extraArgs);
 
     await onMeta?.({
@@ -361,9 +375,26 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     });
   }
 
-  const proc = await runAttempt(sessionId);
-  const parsed = parseCopilotJsonl(proc.stdout);
-  const exitCode = proc.exitCode ?? 0;
+  const initialResumeStyle = preferSessionIdFlag ? "session_id" : "resume";
+  let proc = await runAttempt(sessionId, { resumeStyle: initialResumeStyle });
+  let parsed = parseCopilotJsonl(proc.stdout);
+  let exitCode = proc.exitCode ?? 0;
+
+  if (
+    sessionId &&
+    initialResumeStyle === "session_id" &&
+    !proc.timedOut &&
+    exitCode !== 0 &&
+    COPILOT_UNSUPPORTED_SESSION_ID_FLAG_RE.test(`${proc.stdout}\n${proc.stderr}`)
+  ) {
+    await onLog(
+      "stderr",
+      "[paperclip] Copilot CLI does not support --session-id; retrying with legacy --resume.\n",
+    );
+    proc = await runAttempt(sessionId, { resumeStyle: "resume" });
+    parsed = parseCopilotJsonl(proc.stdout);
+    exitCode = proc.exitCode ?? 0;
+  }
 
   const buildResult = (
     run: typeof proc,
@@ -380,11 +411,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         (runExitCode !== 0 || run.timedOut
           ? runParsed.lastToolError || firstNonEmptyLine(run.stderr) || firstNonEmptyLine(run.stdout) || "Copilot run failed"
           : null),
-      usage: (runParsed.outputTokens > 0 || (runParsed.premiumRequests ?? 0) > 0)
+      usage:
+        (runParsed.inputTokens ?? 0) > 0 ||
+        (runParsed.cachedInputTokens ?? 0) > 0 ||
+        (runParsed.outputTokens ?? 0) > 0 ||
+        (runParsed.premiumRequests ?? 0) > 0
         ? {
-            inputTokens: 0,
-            outputTokens: runParsed.outputTokens,
-            cachedInputTokens: 0,
+            inputTokens: runParsed.inputTokens ?? 0,
+            outputTokens: runParsed.outputTokens ?? 0,
+            cachedInputTokens: runParsed.cachedInputTokens ?? 0,
             ...(typeof runParsed.premiumRequests === "number" ? { premiumRequests: runParsed.premiumRequests } : {}),
           }
         : undefined,

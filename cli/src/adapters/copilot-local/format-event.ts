@@ -13,6 +13,15 @@ function asNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function asNullableNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 function stringifyUnknown(value: unknown): string {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return "";
@@ -34,6 +43,15 @@ function parseResultText(resultRaw: unknown): string {
     asString(result.error) ||
     stringifyUnknown(result)
   );
+}
+
+function readUsageValue(usage: Record<string, unknown> | null, keys: string[]): number | null {
+  if (!usage) return null;
+  for (const key of keys) {
+    const value = asNullableNumber(usage[key]);
+    if (value != null) return value;
+  }
+  return null;
 }
 
 export function printCopilotStreamEvent(raw: string, _debug: boolean): void {
@@ -82,8 +100,28 @@ export function printCopilotStreamEvent(raw: string, _debug: boolean): void {
     const usage = asRecord(parsed.usage);
     const exitCode = asNumber(parsed.exitCode, 0);
     const premiumRequests = typeof usage?.premiumRequests === "number" ? usage.premiumRequests : null;
+    const inputTokens = readUsageValue(usage, ["inputTokens", "input_tokens"]);
+    const cachedInputTokens = readUsageValue(usage, [
+      "cachedInputTokens",
+      "cached_input_tokens",
+      "cacheReadInputTokens",
+      "cache_read_input_tokens",
+    ]);
+    const outputTokens = readUsageValue(usage, ["outputTokens", "output_tokens", "completionTokens", "completion_tokens"]);
+    const reasoningTokens = readUsageValue(usage, [
+      "reasoningTokens",
+      "reasoning_tokens",
+      "outputReasoningTokens",
+      "output_reasoning_tokens",
+      "reasoningOutputTokens",
+      "reasoning_output_tokens",
+    ]);
     const summary = [
       `exit_code=${exitCode}`,
+      inputTokens != null ? `input_tokens=${inputTokens}` : "",
+      cachedInputTokens != null ? `cached_input_tokens=${cachedInputTokens}` : "",
+      outputTokens != null ? `output_tokens=${outputTokens}` : "",
+      reasoningTokens != null ? `reasoning_tokens=${reasoningTokens}` : "",
       premiumRequests !== null ? `premium_requests=${premiumRequests}` : "",
     ].filter(Boolean).join(" ");
     console.log((exitCode === 0 ? pc.blue : pc.red)(`result: ${summary}`));
