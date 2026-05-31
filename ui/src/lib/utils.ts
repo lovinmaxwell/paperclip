@@ -96,6 +96,8 @@ export function formatDurationMs(ms: number): string {
 /** Map a raw provider slug to a display-friendly name. */
 export function providerDisplayName(provider: string): string {
   const map: Record<string, string> = {
+    github: "GitHub",
+    copilot: "Copilot",
     anthropic: "Anthropic",
     aws_bedrock: "AWS Bedrock",
     openai: "OpenAI",

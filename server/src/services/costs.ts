@@ -13,6 +13,19 @@ export interface CostDateRange {
 const METERED_BILLING_TYPE = "metered_api";
 const SUBSCRIPTION_BILLING_TYPES = ["subscription_included", "subscription_overage"] as const;
 
+function normalizeBiller(provider: string, biller: string | null | undefined): string {
+  const normalizedProvider = provider.trim().toLowerCase();
+  const normalizedBiller = biller?.trim().toLowerCase();
+  if (normalizedProvider === "github" && (normalizedBiller === undefined || normalizedBiller === "" || normalizedBiller === "copilot" || normalizedBiller === "github")) {
+    return "github";
+  }
+  return biller ?? provider;
+}
+
+function normalizedBillerSql() {
+  return sql<string>`case when lower(${costEvents.provider}) = 'github' and lower(${costEvents.biller}) = 'copilot' then 'github' else ${costEvents.biller} end`;
+}
+
 function sumAsNumber(column: typeof costEvents.costCents | typeof costEvents.inputTokens | typeof costEvents.cachedInputTokens | typeof costEvents.outputTokens | typeof costEvents.premiumRequests) {
   return sql<number>`coalesce(sum(${column}), 0)::double precision`;
 }
@@ -68,7 +81,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
         .values({
           ...data,
           companyId,
-          biller: data.biller ?? data.provider,
+          biller: normalizeBiller(data.provider, data.biller),
           billingType: data.billingType ?? "unknown",
           cachedInputTokens: data.cachedInputTokens ?? 0,
         })
@@ -309,11 +322,12 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
       const conditions: ReturnType<typeof eq>[] = [eq(costEvents.companyId, companyId)];
       if (range?.from) conditions.push(gte(costEvents.occurredAt, range.from));
       if (range?.to) conditions.push(lte(costEvents.occurredAt, range.to));
+      const billerExpr = normalizedBillerSql();
 
       return db
         .select({
           provider: costEvents.provider,
-          biller: costEvents.biller,
+          biller: billerExpr,
           billingType: costEvents.billingType,
           model: costEvents.model,
           costCents: sumAsNumber(costEvents.costCents),
@@ -334,7 +348,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
         })
         .from(costEvents)
         .where(and(...conditions))
-        .groupBy(costEvents.provider, costEvents.biller, costEvents.billingType, costEvents.model)
+        .groupBy(costEvents.provider, billerExpr, costEvents.billingType, costEvents.model)
         .orderBy(desc(sumAsNumber(costEvents.costCents)));
     },
 
@@ -342,10 +356,11 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
       const conditions: ReturnType<typeof eq>[] = [eq(costEvents.companyId, companyId)];
       if (range?.from) conditions.push(gte(costEvents.occurredAt, range.from));
       if (range?.to) conditions.push(lte(costEvents.occurredAt, range.to));
+      const billerExpr = normalizedBillerSql();
 
       return db
         .select({
-          biller: costEvents.biller,
+          biller: billerExpr,
           costCents: sumAsNumber(costEvents.costCents),
           inputTokens: sumAsNumber(costEvents.inputTokens),
           cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
@@ -366,7 +381,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
         })
         .from(costEvents)
         .where(and(...conditions))
-        .groupBy(costEvents.biller)
+        .groupBy(billerExpr)
         .orderBy(desc(sumAsNumber(costEvents.costCents)));
     },
 
@@ -385,10 +400,11 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
       const results = await Promise.all(
         windows.map(async ({ label, hours }) => {
           const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+          const billerExpr = normalizedBillerSql();
           const rows = await db
             .select({
               provider: costEvents.provider,
-              biller: sql<string>`case when count(distinct ${costEvents.biller}) = 1 then min(${costEvents.biller}) else 'mixed' end`,
+              biller: sql<string>`case when count(distinct ${billerExpr}) = 1 then min(${billerExpr}) else 'mixed' end`,
               costCents: sumAsNumber(costEvents.costCents),
               inputTokens: sumAsNumber(costEvents.inputTokens),
               cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
@@ -424,6 +440,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
       const conditions: ReturnType<typeof eq>[] = [eq(costEvents.companyId, companyId)];
       if (range?.from) conditions.push(gte(costEvents.occurredAt, range.from));
       if (range?.to) conditions.push(lte(costEvents.occurredAt, range.to));
+      const billerExpr = normalizedBillerSql();
 
       // single query: group by agent + provider + model.
       // the (companyId, agentId, occurredAt) composite index covers this well.
@@ -434,7 +451,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           agentId: costEvents.agentId,
           agentName: agents.name,
           provider: costEvents.provider,
-          biller: costEvents.biller,
+          biller: billerExpr,
           billingType: costEvents.billingType,
           model: costEvents.model,
           costCents: sumAsNumber(costEvents.costCents),
@@ -449,11 +466,11 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           costEvents.agentId,
           agents.name,
           costEvents.provider,
-          costEvents.biller,
+          billerExpr,
           costEvents.billingType,
           costEvents.model,
         )
-        .orderBy(costEvents.provider, costEvents.biller, costEvents.billingType, costEvents.model);
+        .orderBy(costEvents.provider, billerExpr, costEvents.billingType, costEvents.model);
     },
 
     byProject: async (companyId: string, range?: CostDateRange) => {

@@ -496,6 +496,81 @@ describeEmbeddedPostgres("cost and finance aggregate overflow handling", () => {
     expect(byAgentModelRow?.costCents).toBe(4_000_000_000);
   });
 
+  it("normalizes legacy copilot biller rows to github in aggregations", async () => {
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "Copilot Agent",
+      role: "engineer",
+      status: "active",
+      adapterType: "copilot_local",
+      adapterConfig: {},
+      runtimeConfig: {},
+      permissions: {},
+    });
+
+    await db.insert(costEvents).values([
+      {
+        companyId,
+        agentId,
+        provider: "github",
+        biller: "copilot",
+        billingType: "subscription_included",
+        model: "claude-sonnet-4.5",
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 100,
+        premiumRequests: 1,
+        costCents: 0,
+        occurredAt: new Date("2026-04-10T00:00:00.000Z"),
+      },
+      {
+        companyId,
+        agentId,
+        provider: "github",
+        biller: "github",
+        billingType: "subscription_included",
+        model: "claude-sonnet-4.5",
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 200,
+        premiumRequests: 2,
+        costCents: 0,
+        occurredAt: new Date("2026-04-11T00:00:00.000Z"),
+      },
+    ]);
+
+    const range = {
+      from: new Date("2026-04-01T00:00:00.000Z"),
+      to: new Date("2026-04-15T23:59:59.999Z"),
+    };
+
+    const byBillerRows = await costs.byBiller(companyId, range);
+    expect(byBillerRows).toHaveLength(1);
+    expect(byBillerRows[0]?.biller).toBe("github");
+    expect(byBillerRows[0]?.premiumRequests).toBe(3);
+
+    const byProviderRows = await costs.byProvider(companyId, range);
+    expect(byProviderRows).toHaveLength(1);
+    expect(byProviderRows[0]?.provider).toBe("github");
+    expect(byProviderRows[0]?.biller).toBe("github");
+    expect(byProviderRows[0]?.premiumRequests).toBe(3);
+
+    const byAgentModelRows = await costs.byAgentModel(companyId, range);
+    expect(byAgentModelRows).toHaveLength(1);
+    expect(byAgentModelRows[0]?.provider).toBe("github");
+    expect(byAgentModelRows[0]?.biller).toBe("github");
+  });
+
   it("aggregates issue costs across recursive descendants only", async () => {
     const companyId = randomUUID();
     const agentId = randomUUID();
@@ -630,6 +705,7 @@ describeEmbeddedPostgres("cost and finance aggregate overflow handling", () => {
       inputTokens: 60,
       cachedInputTokens: 6,
       outputTokens: 12,
+      premiumRequests: 0,
       runCount: 0,
       runtimeMs: 0,
     });

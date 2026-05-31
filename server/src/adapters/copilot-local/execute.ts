@@ -401,7 +401,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         : null,
       sessionDisplayId: runParsed.sessionId,
       provider: "github",
-      biller: "copilot",
+      biller: "github",
       model: runParsed.model ?? model ?? null,
       billingType: "subscription",
       costUsd: null,

@@ -95,6 +95,13 @@ function MetricTile({
   );
 }
 
+function formatPremiumRequests(value: number): string {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 function FinanceSummaryCard({
   debitCents,
   creditCents,
@@ -519,6 +526,12 @@ export function Costs() {
       0,
     );
 
+  const inferencePremiumRequestTotal =
+    (spendData?.byAgent ?? []).reduce(
+      (sum, row) => sum + row.premiumRequests,
+      0,
+    );
+
   const topFinanceEvents = (financeData?.events ?? []) as FinanceEvent[];
   const budgetPolicies = budgetData?.policies ?? [];
   const activeBudgetIncidents = budgetData?.activeIncidents ?? [];
@@ -609,9 +622,9 @@ export function Costs() {
               icon={ReceiptText}
             />
             <MetricTile
-              label="Finance events"
-              value={String(financeData?.summary.eventCount ?? 0)}
-              subtitle={`${formatCents(financeData?.summary.estimatedDebitCents ?? 0)} estimated in range`}
+              label="Premium requests"
+              value={formatPremiumRequests(inferencePremiumRequestTotal)}
+              subtitle="Copilot premium request units in selected range"
               icon={ArrowUpRight}
             />
           </div>
@@ -758,6 +771,9 @@ export function Costs() {
                                       : "0 subscription"}
                                   </div>
                                 ) : null}
+                                <div className="text-xs text-muted-foreground">
+                                  premium {formatPremiumRequests(row.premiumRequests)} req
+                                </div>
                               </div>
                             </div>
 
